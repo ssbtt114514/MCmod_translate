@@ -1,7 +1,7 @@
-// js/file_loader.js - 加载和解压模组文件
+// js/file_loader.js - 只读取 en_us 语言文件
 class ModLoader {
     constructor() {
-        this.mods = []; // 存储每个模组的原始zip数据和语言文件路径
+        this.mods = [];
     }
 
     async loadMod(file) {
@@ -13,16 +13,22 @@ class ModLoader {
                     const zip = await JSZip.loadAsync(arrayBuffer);
                     const langFiles = [];
                     
-                    // 查找所有语言文件: assets/*/lang/*.lang 或 *.json
-                    const langRegex = /assets\/[^\/]+\/lang\/[^\/]+\.(lang|json)$/i;
+                    // 修改正则：只匹配 en_us.lang 或 en_us.json
+                    // 路径格式: assets/模组id/lang/en_us.lang 或 en_us.json
+                    const enUsRegex = /assets\/[^\/]+\/lang\/en_us\.(lang|json)$/i;
                     
                     for (const [filename, entry] of Object.entries(zip.files)) {
-                        if (!entry.dir && langRegex.test(filename)) {
+                        if (!entry.dir && enUsRegex.test(filename)) {
                             let content = await entry.async('string');
+                            // 获取文件后缀 (.lang 或 .json)
+                            const ext = filename.match(/\.(lang|json)$/i)[1].toLowerCase();
+                            const modId = this.extractModId(filename);
+                            
                             langFiles.push({
                                 path: filename,
                                 content: content,
-                                modId: this.extractModId(filename)
+                                modId: modId,
+                                ext: ext  // 保存后缀名
                             });
                         }
                     }
@@ -59,7 +65,8 @@ class ModLoader {
         return results;
     }
     
-    getAllLangEntries() {
+    // 获取所有待翻译的语言文件（整个文件内容，不解析）
+    getAllRawLangFiles() {
         const entries = [];
         for (const mod of this.mods) {
             for (const lang of mod.langFiles) {
@@ -67,35 +74,12 @@ class ModLoader {
                     modName: mod.name,
                     modId: lang.modId,
                     originalPath: lang.path,
-                    originalContent: lang.content,
-                    translatedPath: lang.path,
-                    parsedKeys: this.parseLangContent(lang.content)
+                    originalContent: lang.content,  // 完整文件内容
+                    ext: lang.ext  // lang 或 json
                 });
             }
         }
         return entries;
-    }
-    
-    parseLangContent(content) {
-        const keys = {};
-        // 支持 .lang (key=value) 和 .json 格式
-        if (content.trim().startsWith('{')) {
-            try {
-                const json = JSON.parse(content);
-                Object.assign(keys, json);
-            } catch(e) {}
-        } else {
-            const lines = content.split(/\r?\n/);
-            for (const line of lines) {
-                const eqIndex = line.indexOf('=');
-                if (eqIndex > 0 && !line.startsWith('#')) {
-                    const key = line.substring(0, eqIndex).trim();
-                    const value = line.substring(eqIndex + 1).trim();
-                    if (key) keys[key] = value;
-                }
-            }
-        }
-        return keys;
     }
 }
 
