@@ -13,7 +13,6 @@ class ModLoader {
                     const zip = await JSZip.loadAsync(arrayBuffer);
                     const langFiles = [];
                     
-                    // 只匹配 en_us.lang 或 en_us.json
                     const enUsRegex = /assets\/[^\/]+\/lang\/en_us\.(lang|json)$/i;
                     
                     for (const [filename, entry] of Object.entries(zip.files)) {
