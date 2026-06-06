@@ -1,115 +1,111 @@
-// js/main.js - 主控制器
+// 主控制器
 document.addEventListener('DOMContentLoaded', () => {
-    // DOM 元素绑定
-    const stepPanels = {
-        1: document.getElementById('step1Panel'),
-        2: document.getElementById('step2Panel'),
-        3: document.getElementById('step3Panel'),
-        4: document.getElementById('step4Panel')
+    const panels = { 
+        1: document.getElementById('step1Panel'), 
+        2: document.getElementById('step2Panel'), 
+        3: document.getElementById('step3Panel'), 
+        4: document.getElementById('step4Panel') 
     };
-    
     const steps = document.querySelectorAll('.step');
     let currentStep = 1;
     let loadedMods = [];
-    let translatedResults = {}; // { modId: { key: translation } }
-    let selectedProvider = 'openai';
-    let selectedModel = '';
-    
+    let translatedResults = {};
+
     function showStep(step) {
-        Object.values(stepPanels).forEach(panel => panel.classList.remove('active'));
-        stepPanels[step].classList.add('active');
-        steps.forEach((s, idx) => {
-            if (idx + 1 === step) s.classList.add('active');
-            else s.classList.remove('active');
+        Object.values(panels).forEach(p => p.classList.remove('active'));
+        panels[step].classList.add('active');
+        steps.forEach((s, idx) => { 
+            if (idx + 1 === step) s.classList.add('active'); 
+            else s.classList.remove('active'); 
         });
         currentStep = step;
     }
-    
-    // 文件上传逻辑
+
+    // 文件上传
     const uploadArea = document.getElementById('uploadArea');
     const fileInput = document.getElementById('modFileInput');
     const selectBtn = document.getElementById('selectFilesBtn');
     const modListDiv = document.getElementById('modList');
     const toStep2Btn = document.getElementById('toStep2');
-    
-    selectBtn.addEventListener('click', () => fileInput.click());
-    uploadArea.addEventListener('click', () => fileInput.click());
-    uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.style.borderColor = '#764ba2'; });
-    uploadArea.addEventListener('dragleave', () => uploadArea.style.borderColor = '#667eea');
-    uploadArea.addEventListener('drop', async (e) => {
+
+    selectBtn.onclick = () => fileInput.click();
+    uploadArea.onclick = () => fileInput.click();
+    uploadArea.ondragover = (e) => { e.preventDefault(); uploadArea.style.borderColor = '#764ba2'; };
+    uploadArea.ondragleave = () => uploadArea.style.borderColor = '#667eea';
+    uploadArea.ondrop = async (e) => {
         e.preventDefault();
         uploadArea.style.borderColor = '#667eea';
         const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.jar') || f.name.endsWith('.zip'));
-        await loadModFiles(files);
-    });
-    
-    fileInput.addEventListener('change', async (e) => {
-        await loadModFiles(Array.from(e.target.files));
-    });
-    
-    async function loadModFiles(files) {
-        modListDiv.innerHTML = '<div style="text-align:center">正在加载模组...</div>';
-        const results = await window.modLoader.loadMultiple(files, (cur, total, name) => {
-            modListDiv.innerHTML = `<div>加载中 ${cur}/${total}: ${name}</div>`;
+        await loadFiles(files);
+    };
+    fileInput.onchange = async (e) => { await loadFiles(Array.from(e.target.files)); };
+
+    async function loadFiles(files) {
+        if (!files.length) return;
+        modListDiv.innerHTML = '<div style="text-align:center">加载中...</div>';
+        const results = await modLoader.loadMultiple(files, (cur, total, name) => { 
+            modListDiv.innerHTML = `<div style="text-align:center">加载中 ${cur}/${total}: ${name}</div>`; 
         });
         loadedMods = results;
-        displayModList();
-        toStep2Btn.disabled = false;
-    }
-    
-    function displayModList() {
-        if (loadedMods.length === 0) {
-            modListDiv.innerHTML = '<div>未加载模组</div>';
-            return;
+        
+        const validMods = loadedMods.filter(m => !m.error && m.langFiles.length > 0);
+        const errorMods = loadedMods.filter(m => m.error);
+        
+        if (validMods.length > 0) {
+            let html = '';
+            for (const mod of validMods) {
+                const langInfo = mod.langFiles.map(l => l.path.split('/').pop()).join(', ');
+                html += `<div class="mod-item"><span class="mod-name">📁 ${mod.name}</span><span class="mod-status">${langInfo}</span></div>`;
+            }
+            if (errorMods.length > 0) {
+                html += `<div class="mod-item" style="background:rgba(255,0,0,0.2)"><span class="mod-name">⚠️ 加载失败 ${errorMods.length} 个文件</span></div>`;
+            }
+            modListDiv.innerHTML = html;
+            toStep2Btn.disabled = false;
+        } else {
+            modListDiv.innerHTML = '<div>❌ 未找到 en_us.lang 或 en_us.json 文件</div>';
+            toStep2Btn.disabled = true;
         }
-        let html = '';
-        for (const mod of loadedMods) {
-            const langCount = mod.langFiles.length;
-            html += `<div class="mod-item"><span class="mod-name">📁 ${mod.name}</span><span class="mod-status">${langCount} 个语言文件</span></div>`;
-        }
-        modListDiv.innerHTML = html;
     }
-    
-    // 步骤切换
+
+    // 步骤导航
     document.getElementById('toStep2').onclick = () => showStep(2);
     document.getElementById('backToStep1').onclick = () => showStep(1);
-    document.getElementById('toStep3').onclick = async () => {
-        // 验证API配置
-        const apiKey = document.getElementById('apiKey').value;
-        if (!apiKey) { alert('请输入API Key'); return; }
-        selectedProvider = document.getElementById('apiProvider').value;
-        selectedModel = document.getElementById('modelSelect').value;
-        if (!selectedModel) { alert('请选择模型'); return; }
-        showStep(3);
-        await startTranslation();
-    };
     document.getElementById('backToStep2').onclick = () => showStep(2);
+    document.getElementById('backToStep3').onclick = () => showStep(3);
+    
+    document.getElementById('toStep3').onclick = async () => {
+        const apiKey = document.getElementById('apiKey').value;
+        if (!apiKey) { alert('请输入 API Key'); return; }
+        const provider = document.getElementById('apiProvider').value;
+        const model = document.getElementById('modelSelect').value;
+        if (!model) { alert('请选择模型'); return; }
+        showStep(3);
+        await startTranslation(provider, model, apiKey);
+    };
+    
     document.getElementById('toStep4').onclick = () => {
         showStep(4);
-        const previewHtml = window.packBuilder.getStructurePreview(translatedResults);
-        document.getElementById('packStructure').innerHTML = previewHtml;
+        document.getElementById('packStructure').innerHTML = packBuilder.getStructurePreview(translatedResults);
     };
-    document.getElementById('backToStep3').onclick = () => showStep(3);
+    
     document.getElementById('downloadPack').onclick = async () => {
-        const packMeta = {
-            pack: {
-                pack_format: 12,
-                description: "§a自动汉化资源包\n§7由AI生成"
-            }
-        };
-        const packPngResponse = await fetch('pack.png');
-        const packPngBlob = packPngResponse.ok ? await packPngResponse.blob() : null;
-        
-        const zipBlob = await window.packBuilder.buildResourcePack(JSON.stringify(packMeta, null, 2), packPngBlob, translatedResults);
-        const url = URL.createObjectURL(zipBlob);
+        const packMeta = JSON.stringify({ 
+            pack: { 
+                pack_format: 12, 
+                description: "§a自动汉化资源包\n§7由AI生成" 
+            } 
+        }, null, 2);
+        const blob = await packBuilder.buildResourcePack(packMeta, translatedResults);
+        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `AutoTrans_ResourcePack.zip`;
+        a.download = `AutoTrans_ResourcePack_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.zip`;
         a.click();
         URL.revokeObjectURL(url);
     };
-    
-    async function startTranslation() {
+
+    async function startTranslation(provider, model, apiKey) {
         const logDiv = document.getElementById('translateLog');
         const progressFill = document.getElementById('translateProgress');
         const progressText = document.getElementById('progressText');
@@ -118,71 +114,83 @@ document.addEventListener('DOMContentLoaded', () => {
         logDiv.innerHTML = '';
         translatedResults = {};
         
-        const allEntries = window.modLoader.getAllLangEntries();
-        let totalKeys = 0;
-        for (const entry of allEntries) totalKeys += Object.keys(entry.parsedKeys).length;
+        const allLangFiles = modLoader.getAllRawLangFiles();
         
-        let processedKeys = 0;
-        const apiKey = document.getElementById('apiKey').value;
-        const provider = document.getElementById('apiProvider').value;
-        const model = document.getElementById('modelSelect').value;
-        const baseUrl = document.getElementById('apiBaseUrl').value || null;
-        
-        for (const entry of allEntries) {
-            const keys = entry.parsedKeys;
-            const modId = entry.modId;
-            logDiv.innerHTML += `<div class="log-entry">📝 翻译模组: ${entry.modName} (${modId}) - ${Object.keys(keys).length} 条</div>`;
-            
-            const translated = await window.translator.translateKeys(keys, provider, model, apiKey, baseUrl, (done, total) => {
-                const percent = ((processedKeys + done) / totalKeys) * 100;
-                progressFill.style.width = `${percent}%`;
-                progressText.innerText = `翻译进度: ${processedKeys + done} / ${totalKeys}`;
-            });
-            
-            if (!translatedResults[modId]) translatedResults[modId] = {};
-            Object.assign(translatedResults[modId], translated);
-            processedKeys += Object.keys(keys).length;
-            logDiv.innerHTML += `<div class="log-entry">✅ 完成 ${modId} 翻译</div>`;
-            logDiv.scrollTop = logDiv.scrollHeight;
+        if (allLangFiles.length === 0) {
+            logDiv.innerHTML = '<div class="log-entry">❌ 未找到 en_us.lang 或 en_us.json 文件</div>';
+            progressText.innerText = '未找到语言文件';
+            return;
         }
         
+        const totalFiles = allLangFiles.length;
+        const baseUrl = document.getElementById('apiBaseUrl').value || null;
+        
+        logDiv.innerHTML += `<div class="log-entry">📚 找到 ${totalFiles} 个 en_us 语言文件，开始翻译...</div>`;
+        
+        const results = await translator.translateMultipleFiles(
+            allLangFiles,
+            provider,
+            model,
+            apiKey,
+            baseUrl,
+            (modName, modId, current, total) => {
+                logDiv.innerHTML += `<div class="log-entry">🔄 [${current}/${total}] 正在翻译: ${modName} (${modId})</div>`;
+                logDiv.scrollTop = logDiv.scrollHeight;
+                const percent = ((current - 1) / total) * 100;
+                progressFill.style.width = `${percent}%`;
+                progressText.innerText = `翻译进度: ${current - 1} / ${total}`;
+            },
+            (modName, modId, current, total, success, errorMsg) => {
+                if (success) {
+                    logDiv.innerHTML += `<div class="log-entry">✅ [${current}/${total}] 完成: ${modName} (${modId})</div>`;
+                } else {
+                    logDiv.innerHTML += `<div class="log-entry">❌ [${current}/${total}] 失败: ${modName} - ${errorMsg}</div>`;
+                }
+                const percent = (current / total) * 100;
+                progressFill.style.width = `${percent}%`;
+                progressText.innerText = `翻译进度: ${current} / ${total}`;
+                logDiv.scrollTop = logDiv.scrollHeight;
+            }
+        );
+        
+        translatedResults = results;
+        
         progressFill.style.width = '100%';
-        progressText.innerText = '翻译完成！';
+        progressText.innerText = `翻译完成！共 ${totalFiles} 个语言文件`;
         toStep4Btn.disabled = false;
+        
+        logDiv.innerHTML += `<div class="log-entry">🎉 全部翻译完成！共处理 ${Object.keys(results).length} 个模组的语言文件</div>`;
     }
-    
-    // AI 提供商变更时加载模型列表
+
+    // 模型列表动态加载
     const providerSelect = document.getElementById('apiProvider');
     const modelSelect = document.getElementById('modelSelect');
     const baseUrlRow = document.getElementById('baseUrlRow');
     const apiBaseUrl = document.getElementById('apiBaseUrl');
     
-    providerSelect.addEventListener('change', async () => {
-        const provider = providerSelect.value;
-        if (provider === 'custom') {
-            baseUrlRow.style.display = 'flex';
-        } else {
-            baseUrlRow.style.display = 'none';
-            const config = window.apiManager.providers[provider];
-            apiBaseUrl.value = config.baseUrl;
+    providerSelect.onchange = async () => {
+        const val = providerSelect.value;
+        baseUrlRow.style.display = val === 'custom' ? 'flex' : 'none';
+        if (val !== 'custom' && apiManager.providers[val]) {
+            apiBaseUrl.value = apiManager.providers[val].baseUrl;
         }
-        const apiKey = document.getElementById('apiKey').value;
-        if (apiKey) {
-            await loadModels();
-        }
-    });
+        const key = document.getElementById('apiKey').value;
+        if (key || val === 'custom') await loadModels();
+    };
     
     async function loadModels() {
         const provider = providerSelect.value;
-        const apiKey = document.getElementById('apiKey').value;
-        const baseUrl = apiBaseUrl.value || null;
-        if (!apiKey && provider !== 'custom') return;
-        modelSelect.innerHTML = '<option>加载模型中...</option>';
+        const key = document.getElementById('apiKey').value;
+        const base = apiBaseUrl.value || null;
+        modelSelect.innerHTML = '<option>加载中...</option>';
         try {
-            const models = await window.apiManager.fetchModels(provider, apiKey, baseUrl);
-            modelSelect.innerHTML = models.map(m => `<option value="${m}">${m}</option>`).join('');
-            selectedModel = models[0];
-        } catch(e) {
+            const models = await apiManager.fetchModels(provider, key, base);
+            if (models && models.length > 0) {
+                modelSelect.innerHTML = models.map(m => `<option value="${m}">${m}</option>`).join('');
+            } else {
+                modelSelect.innerHTML = '<option>未获取到模型列表</option>';
+            }
+        } catch(e) { 
             modelSelect.innerHTML = '<option>加载失败，请检查API设置</option>';
         }
     }
