@@ -162,41 +162,115 @@ document.addEventListener('DOMContentLoaded', () => {
         logDiv.innerHTML += `<div class="log-entry">🎉 全部翻译完成！共处理 ${Object.keys(results).length} 个模组的语言文件</div>`;
     }
 
-    // 模型列表动态加载
+    // 模型列表管理
     const providerSelect = document.getElementById('apiProvider');
     const modelSelect = document.getElementById('modelSelect');
+    const modelSearchInput = document.getElementById('modelSearchInput');
+    const refreshModelsBtn = document.getElementById('refreshModelsBtn');
     const baseUrlRow = document.getElementById('baseUrlRow');
     const apiBaseUrl = document.getElementById('apiBaseUrl');
-    
+
+    let allModels = [];
+    let currentProvider = 'openai';
+
+    async function loadModels() {
+        const provider = providerSelect.value;
+        const apiKey = document.getElementById('apiKey').value;
+        const base = apiBaseUrl.value || null;
+        
+        currentProvider = provider;
+        
+        if (!apiKey && provider !== 'custom') {
+            modelSelect.innerHTML = '<option value="">请先填写 API Key</option>';
+            return;
+        }
+        
+        refreshModelsBtn.disabled = true;
+        refreshModelsBtn.textContent = '⏳ 加载中...';
+        modelSelect.innerHTML = '<option value="">加载模型中...</option>';
+        
+        try {
+            const models = await apiManager.fetchModels(provider, apiKey, base);
+            allModels = models;
+            renderModelList('');
+            
+            if (models.length === 0) {
+                modelSelect.innerHTML = '<option value="">未获取到模型列表</option>';
+            }
+        } catch(e) { 
+            console.error(e);
+            modelSelect.innerHTML = `<option value="">加载失败: ${e.message}</option>`;
+        } finally {
+            refreshModelsBtn.disabled = false;
+            refreshModelsBtn.textContent = '🔄 刷新';
+        }
+    }
+
+    function renderModelList(searchText) {
+        const searchLower = searchText.toLowerCase().trim();
+        let filteredModels = allModels;
+        
+        if (searchLower) {
+            filteredModels = allModels.filter(model => 
+                model.toLowerCase().includes(searchLower)
+            );
+        }
+        
+        if (filteredModels.length === 0) {
+            modelSelect.innerHTML = '<option value="">没有找到匹配的模型</option>';
+            return;
+        }
+        
+        modelSelect.innerHTML = filteredModels.map(model => 
+            `<option value="${model}">${model}</option>`
+        ).join('');
+        
+        const currentSelected = window._selectedModel;
+        if (currentSelected && filteredModels.includes(currentSelected)) {
+            modelSelect.value = currentSelected;
+        }
+    }
+
+    modelSearchInput.addEventListener('input', (e) => {
+        renderModelList(e.target.value);
+    });
+
+    refreshModelsBtn.onclick = () => {
+        loadModels();
+    };
+
+    modelSelect.addEventListener('change', (e) => {
+        window._selectedModel = e.target.value;
+    });
+
     providerSelect.onchange = async () => {
         const val = providerSelect.value;
         baseUrlRow.style.display = val === 'custom' ? 'flex' : 'none';
         if (val !== 'custom' && apiManager.providers[val]) {
             apiBaseUrl.value = apiManager.providers[val].baseUrl;
         }
-        const key = document.getElementById('apiKey').value;
-        if (key || val === 'custom') await loadModels();
-    };
-    
-    async function loadModels() {
-        const provider = providerSelect.value;
-        const key = document.getElementById('apiKey').value;
-        const base = apiBaseUrl.value || null;
-        modelSelect.innerHTML = '<option>加载中...</option>';
-        try {
-            const models = await apiManager.fetchModels(provider, key, base);
-            if (models && models.length > 0) {
-                modelSelect.innerHTML = models.map(m => `<option value="${m}">${m}</option>`).join('');
-            } else {
-                modelSelect.innerHTML = '<option>未获取到模型列表</option>';
-            }
-        } catch(e) { 
-            modelSelect.innerHTML = '<option>加载失败，请检查API设置</option>';
+        
+        modelSearchInput.value = '';
+        allModels = [];
+        modelSelect.innerHTML = '<option value="">点击刷新获取模型列表</option>';
+        
+        const apiKey = document.getElementById('apiKey').value;
+        if (apiKey || val === 'custom') {
+            await loadModels();
         }
-    }
-    
-    document.getElementById('apiKey').addEventListener('change', loadModels);
-    apiBaseUrl.addEventListener('change', loadModels);
+    };
+
+    document.getElementById('apiKey').addEventListener('change', () => {
+        if (providerSelect.value !== 'custom') {
+            loadModels();
+        }
+    });
+
+    apiBaseUrl.addEventListener('change', () => {
+        if (providerSelect.value === 'custom') {
+            loadModels();
+        }
+    });
     
     showStep(1);
 });
