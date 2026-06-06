@@ -205,6 +205,80 @@ header h1 {
     background: rgba(255,255,255,0.25);
 }
 
+/* 模型选择区域样式 */
+.model-select-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.model-search-bar {
+    display: flex;
+    gap: 10px;
+}
+
+#modelSearchInput {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    border: none;
+    background: rgba(255,255,255,0.15);
+    color: white;
+    font-size: 0.9rem;
+}
+
+#modelSearchInput::placeholder {
+    color: #aaa;
+}
+
+#modelSearchInput:focus {
+    outline: none;
+    background: rgba(255,255,255,0.25);
+}
+
+.btn-refresh {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: transform 0.2s;
+    white-space: nowrap;
+}
+
+.btn-refresh:active {
+    transform: scale(0.97);
+}
+
+.btn-refresh:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+#modelSelect {
+    padding: 10px;
+    border-radius: 10px;
+    border: none;
+    background: rgba(255,255,255,0.15);
+    color: white;
+    font-size: 0.9rem;
+    overflow-y: auto;
+    min-height: 150px;
+}
+
+#modelSelect option {
+    padding: 8px;
+    border-radius: 5px;
+    background: #2a2a4a;
+}
+
+#modelSelect option:checked {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
 .action-bar {
     display: flex;
     justify-content: space-between;
@@ -289,5 +363,8 @@ header h1 {
     }
     .mod-status {
         margin-left: 0;
+    }
+    .model-search-bar {
+        flex-direction: column;
     }
 }
