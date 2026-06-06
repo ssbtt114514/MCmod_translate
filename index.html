@@ -58,9 +58,15 @@
                     </div>
                     <div class="config-row">
                         <label>模型选择</label>
-                        <select id="modelSelect">
-                            <option value="">请先选择提供商</option>
-                        </select>
+                        <div class="model-select-container">
+                            <div class="model-search-bar">
+                                <input type="text" id="modelSearchInput" placeholder="搜索模型...">
+                                <button type="button" id="refreshModelsBtn" class="btn-refresh">🔄 刷新</button>
+                            </div>
+                            <select id="modelSelect" size="6">
+                                <option value="">请点击刷新获取模型列表</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
                 <div class="action-bar">
