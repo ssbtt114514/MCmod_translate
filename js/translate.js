@@ -1,18 +1,15 @@
-// js/translate.js - 整文件翻译，保持原格式
+// 翻译模块 - 整文件翻译，保持格式
 class Translator {
     constructor() {
         this.translationCache = new Map();
     }
     
-    // 翻译整个语言文件内容
-    async translateFullFile(originalContent, ext, apiProvider, model, apiKey, baseUrl, onProgress) {
-        // 检查缓存（可选，以文件内容为key）
-        const cacheKey = originalContent;
+    async translateFullFile(originalContent, ext, apiProvider, model, apiKey, baseUrl) {
+        const cacheKey = originalContent.substring(0, 500) + ext;
         if (this.translationCache.has(cacheKey)) {
             return this.translationCache.get(cacheKey);
         }
         
-        // 构建提示词
         let systemPrompt = '';
         if (ext === 'json') {
             systemPrompt = `你是一个Minecraft模组汉化专家。请将以下JSON格式的语言文件中的所有英文文本值翻译成简体中文。
@@ -25,7 +22,6 @@ class Translator {
 
 以下是需要翻译的JSON内容：`;
         } else {
-            // .lang 文件格式
             systemPrompt = `你是一个Minecraft模组汉化专家。请将以下lang格式的语言文件中的所有英文文本翻译成简体中文。
 严格要求：
 1. 保持每行的键名(key)完全不变（等号=左边的内容）
@@ -38,43 +34,34 @@ class Translator {
 以下是需要翻译的lang内容：`;
         }
         
-        try {
-            const fullPrompt = systemPrompt + "\n\n" + originalContent;
-            
-            const result = await window.apiManager.translate(
-                fullPrompt, 
-                apiProvider, 
-                model, 
-                apiKey, 
-                baseUrl
-            );
-            
-            // 清理可能的markdown代码块标记
-            let cleanedResult = result.trim();
-            if (cleanedResult.startsWith('```json') || cleanedResult.startsWith('```')) {
-                cleanedResult = cleanedResult.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '');
-            } else if (ext === 'lang' && cleanedResult.startsWith('```')) {
-                cleanedResult = cleanedResult.replace(/^```\n?/, '').replace(/\n?```$/, '');
-            }
-            
-            this.translationCache.set(cacheKey, cleanedResult);
-            return cleanedResult;
-        } catch(err) {
-            console.error('翻译失败:', err);
-            throw err;
+        const fullPrompt = systemPrompt + "\n\n" + originalContent;
+        
+        const result = await window.apiManager.translate(
+            fullPrompt, 
+            apiProvider, 
+            model, 
+            apiKey, 
+            baseUrl
+        );
+        
+        let cleanedResult = result.trim();
+        if (cleanedResult.startsWith('```json') || cleanedResult.startsWith('```')) {
+            cleanedResult = cleanedResult.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '');
         }
+        
+        this.translationCache.set(cacheKey, cleanedResult);
+        return cleanedResult;
     }
     
-    // 批量翻译多个文件
-    async translateMultipleFiles(files, apiProvider, model, apiKey, baseUrl, onFileProgress, onItemProgress) {
+    async translateMultipleFiles(files, apiProvider, model, apiKey, baseUrl, onFileStart, onFileComplete) {
         const results = {};
-        let completedFiles = 0;
         
-        for (const file of files) {
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
             const modId = file.modId;
             
-            if (onFileProgress) {
-                onFileProgress(file.modName, file.modId, completedFiles + 1, files.length);
+            if (onFileStart) {
+                onFileStart(file.modName, modId, i + 1, files.length);
             }
             
             try {
@@ -84,30 +71,30 @@ class Translator {
                     apiProvider,
                     model,
                     apiKey,
-                    baseUrl,
-                    (done, total) => {
-                        if (onItemProgress) onItemProgress(modId, done, total);
-                    }
+                    baseUrl
                 );
                 
                 if (!results[modId]) {
                     results[modId] = {};
                 }
-                // 保存翻译后的内容和后缀名
                 results[modId].content = translatedContent;
                 results[modId].ext = file.ext;
                 
+                if (onFileComplete) {
+                    onFileComplete(file.modName, modId, i + 1, files.length, true);
+                }
             } catch(err) {
                 console.error(`翻译 ${file.modName} 失败:`, err);
-                // 失败时保留原文
                 if (!results[modId]) {
                     results[modId] = {};
                 }
                 results[modId].content = file.originalContent;
                 results[modId].ext = file.ext;
+                
+                if (onFileComplete) {
+                    onFileComplete(file.modName, modId, i + 1, files.length, false, err.message);
+                }
             }
-            
-            completedFiles++;
         }
         
         return results;
