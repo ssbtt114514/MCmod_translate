@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft 模组汉化资源包生成器</title>
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚡ 模组汉化资源包生成器</h1>
+            <p>支持多模组文件加载 · 自动汉化 · 打包为通用资源包</p>
+        </header>
+
+        <!-- 步骤指示器 -->
+        <div class="steps">
+            <div class="step active" data-step="1">📂 加载模组</div>
+            <div class="step" data-step="2">🤖 选择模型</div>
+            <div class="step" data-step="3">🌐 翻译生成</div>
+            <div class="step" data-step="4">📦 打包下载</div>
+        </div>
+
+        <!-- 主内容区 -->
+        <div class="main-card">
+            <!-- 步骤1: 文件加载 -->
+            <div id="step1Panel" class="step-panel active">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📦</div>
+                    <div class="upload-text">拖拽或点击选择模组文件 (.jar/.zip)</div>
+                    <input type="file" id="modFileInput" multiple accept=".jar,.zip,.ZIP,.JAR" style="display:none">
+                    <button class="btn btn-primary" id="selectFilesBtn">选择文件</button>
+                </div>
+                <div id="modList" class="mod-list"></div>
+                <div class="action-bar">
+                    <button class="btn btn-next" id="toStep2" disabled>下一步：选择模型 →</button>
+                </div>
+            </div>
+
+            <!-- 步骤2: AI模型选择 -->
+            <div id="step2Panel" class="step-panel">
+                <div class="api-config">
+                    <div class="config-row">
+                        <label>API 提供商</label>
+                        <select id="apiProvider">
+                            <option value="openai">OpenAI (GPT)</option>
+                            <option value="anthropic">Anthropic Claude</option>
+                            <option value="google">Google Gemini</option>
+                            <option value="deepseek">DeepSeek</option>
+                            <option value="custom">自定义兼容接口</option>
+                        </select>
+                    </div>
+                    <div class="config-row">
+                        <label>API Key</label>
+                        <input type="password" id="apiKey" placeholder="输入您的 API Key">
+                    </div>
+                    <div class="config-row" id="baseUrlRow" style="display:none">
+                        <label>API 地址</label>
+                        <input type="text" id="apiBaseUrl" placeholder="https://api.openai.com/v1">
+                    </div>
+                    <div class="config-row">
+                        <label>模型选择</label>
+                        <select id="modelSelect">
+                            <option value="">请先选择提供商</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="action-bar">
+                    <button class="btn btn-prev" id="backToStep1">← 返回</button>
+                    <button class="btn btn-next" id="toStep3">下一步：开始翻译 →</button>
+                </div>
+            </div>
+
+            <!-- 步骤3: 翻译进度 -->
+            <div id="step3Panel" class="step-panel">
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="translateProgress" style="width:0%"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">准备就绪</div>
+                </div>
+                <div id="translateLog" class="log-area"></div>
+                <div class="action-bar">
+                    <button class="btn btn-prev" id="backToStep2">← 返回</button>
+                    <button class="btn btn-next" id="toStep4" disabled>下一步：打包资源包 →</button>
+                </div>
+            </div>
+
+            <!-- 步骤4: 打包下载 -->
+            <div id="step4Panel" class="step-panel">
+                <div class="pack-preview">
+                    <h3>📁 资源包预览</h3>
+                    <div id="packStructure" class="tree-view"></div>
+                </div>
+                <div class="action-bar">
+                    <button class="btn btn-prev" id="backToStep3">← 返回</button>
+                    <button class="btn btn-success" id="downloadPack">⬇️ 下载资源包</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入 JS 模块 -->
+    <script src="js/jszip.min.js"></script>
+    <script src="js/API.js"></script>
+    <script src="js/file_loader.js"></script>
+    <script src="js/translate.js"></script>
+    <script src="js/pack.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
