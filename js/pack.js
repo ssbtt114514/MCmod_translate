@@ -5,7 +5,6 @@ class PackBuilder {
         
         zip.file('pack.mcmeta', packMcmetaContent);
         
-        // 内置默认 pack.png（1x1透明像素）
         const defaultPngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
         zip.file('pack.png', defaultPngBase64, { base64: true });
         
