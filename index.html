@@ -13,6 +13,13 @@
             <p>只读取 en_us.lang / en_us.json · 整文件翻译 · 保持原格式</p>
         </header>
 
+        <!-- CORS 使用提示 -->
+        <div class="cors-notice" id="corsNotice" style="display: none;">
+            ⚠️ 首次使用需先<a href="https://cors-anywhere.herokuapp.com/" target="_blank">点击这里</a>
+            获取CORS代理临时访问权限，然后刷新本页面即可正常使用自动获取模型功能。
+            <button onclick="document.getElementById('corsNotice').style.display='none'">✕ 关闭</button>
+        </div>
+
         <div class="steps">
             <div class="step active" data-step="1">📂 加载模组</div>
             <div class="step" data-step="2">🤖 选择模型</div>
@@ -41,10 +48,10 @@
                     <div class="config-row">
                         <label>API 提供商</label>
                         <select id="apiProvider">
+                            <option value="deepseek" selected>DeepSeek</option>
                             <option value="openai">OpenAI (GPT)</option>
                             <option value="anthropic">Anthropic Claude</option>
                             <option value="google">Google Gemini</option>
-                            <option value="deepseek">DeepSeek</option>
                             <option value="custom">自定义兼容接口</option>
                         </select>
                     </div>
@@ -60,12 +67,23 @@
                         <label>模型选择</label>
                         <div class="model-select-container">
                             <div class="model-search-bar">
-                                <input type="text" id="modelSearchInput" placeholder="搜索模型...">
+                                <input type="text" id="modelSearchInput" placeholder="搜索或手动输入模型名称...">
                                 <button type="button" id="refreshModelsBtn" class="btn-refresh">🔄 刷新</button>
+                                <button type="button" id="manualAddModelBtn" class="btn-manual">➕ 手动添加</button>
                             </div>
                             <select id="modelSelect" size="6">
-                                <option value="">请点击刷新获取模型列表</option>
+                                <option value="">请点击刷新获取模型列表或手动添加</option>
                             </select>
+                            <div id="manualModelPanel" style="display: none;">
+                                <div class="manual-input-group">
+                                    <input type="text" id="manualModelInput" placeholder="输入模型名称，如: deepseek-chat, gpt-4, claude-3-opus">
+                                    <button type="button" id="confirmManualModelBtn" class="btn-primary">添加</button>
+                                    <button type="button" id="cancelManualModelBtn" class="btn-prev">取消</button>
+                                </div>
+                                <div class="manual-tips">
+                                    💡 提示：如果不确定模型名称，可以查看API文档或使用默认模型
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
