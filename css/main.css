@@ -31,6 +31,32 @@ header h1 {
     margin-bottom: 10px;
 }
 
+.cors-notice {
+    background: #ffc107;
+    color: #333;
+    padding: 12px 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.cors-notice a {
+    color: #0066cc;
+    font-weight: bold;
+}
+
+.cors-notice button {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: #333;
+}
+
 .steps {
     display: flex;
     justify-content: space-between;
@@ -131,10 +157,35 @@ header h1 {
     color: white;
 }
 
-.btn:active {
+.btn-manual {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+    color: white;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: transform 0.2s;
+    white-space: nowrap;
+}
+
+.btn-refresh {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: transform 0.2s;
+    white-space: nowrap;
+}
+
+.btn:active, .btn-manual:active, .btn-refresh:active {
     transform: scale(0.97);
 }
-.btn:disabled {
+
+.btn:disabled, .btn-manual:disabled, .btn-refresh:disabled {
     opacity: 0.5;
     cursor: not-allowed;
     transform: none;
@@ -196,6 +247,7 @@ header h1 {
     color: white;
     font-size: 1rem;
 }
+
 .config-row input::placeholder {
     color: #aaa;
 }
@@ -205,7 +257,6 @@ header h1 {
     background: rgba(255,255,255,0.25);
 }
 
-/* 模型选择区域样式 */
 .model-select-container {
     display: flex;
     flex-direction: column;
@@ -215,10 +266,11 @@ header h1 {
 .model-search-bar {
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
 }
 
 #modelSearchInput {
-    flex: 1;
+    flex: 2;
     padding: 10px;
     border-radius: 10px;
     border: none;
@@ -234,28 +286,6 @@ header h1 {
 #modelSearchInput:focus {
     outline: none;
     background: rgba(255,255,255,0.25);
-}
-
-.btn-refresh {
-    padding: 10px 16px;
-    border: none;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: white;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: transform 0.2s;
-    white-space: nowrap;
-}
-
-.btn-refresh:active {
-    transform: scale(0.97);
-}
-
-.btn-refresh:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
 }
 
 #modelSelect {
@@ -277,6 +307,40 @@ header h1 {
 
 #modelSelect option:checked {
     background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+#manualModelPanel {
+    background: rgba(0,0,0,0.3);
+    padding: 12px;
+    border-radius: 12px;
+    margin-top: 5px;
+}
+
+.manual-input-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.manual-input-group input {
+    flex: 2;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(255,255,255,0.2);
+    color: white;
+}
+
+.manual-input-group button {
+    margin-top: 0;
+    padding: 10px 20px;
+}
+
+.manual-tips {
+    font-size: 0.75rem;
+    color: #aaa;
+    margin-top: 8px;
 }
 
 .action-bar {
@@ -365,6 +429,9 @@ header h1 {
         margin-left: 0;
     }
     .model-search-bar {
+        flex-direction: column;
+    }
+    .manual-input-group {
         flex-direction: column;
     }
 }
