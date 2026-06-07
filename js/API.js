@@ -1,8 +1,13 @@
-// AI模型API管理 - 使用CORS代理解决跨域问题
+// AI模型API管理 - 支持CORS代理和手动添加模型
 class AIModelAPI {
     constructor() {
-        // CORS代理地址（需要先访问 https://cors-anywhere.herokuapp.com/ 获取临时访问权限）
-        this.corsProxy = 'https://cors-anywhere.herokuapp.com/';
+        // CORS代理列表
+        this.proxyList = [
+            'https://cors-anywhere.herokuapp.com/',
+            'https://api.allorigins.win/raw?url=',
+            'https://corsproxy.io/?url='
+        ];
+        this.currentProxyIndex = 0;
         
         this.providers = {
             openai: { 
@@ -27,7 +32,7 @@ class AIModelAPI {
                 modelsUrl: '/models', 
                 chatUrl: '/models/{model}:generateContent', 
                 defaultModels: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.0-pro'],
-                needsProxy: false  // Google 可以用 key 参数绕过 CORS
+                needsProxy: false
             },
             deepseek: { 
                 name: 'DeepSeek', 
@@ -48,6 +53,19 @@ class AIModelAPI {
         };
     }
 
+    getProxyUrl(originalUrl) {
+        const proxy = this.proxyList[this.currentProxyIndex];
+        if (proxy.includes('raw?url=') || proxy.includes('?url=')) {
+            return proxy + encodeURIComponent(originalUrl);
+        }
+        return proxy + originalUrl;
+    }
+
+    switchProxy() {
+        this.currentProxyIndex = (this.currentProxyIndex + 1) % this.proxyList.length;
+        console.log(`切换到代理: ${this.proxyList[this.currentProxyIndex]}`);
+    }
+
     async fetchModels(provider, apiKey, baseUrl = null) {
         const config = this.providers[provider];
         let url = baseUrl || config.baseUrl;
@@ -56,66 +74,58 @@ class AIModelAPI {
         
         const fullUrl = url + config.modelsUrl;
         
-        // 构建请求头
         const headers = { 'Content-Type': 'application/json' };
         
         if (provider === 'anthropic') { 
             headers['x-api-key'] = apiKey; 
             headers['anthropic-version'] = '2023-06-01'; 
         } else if (provider === 'google') {
-            // Google 使用 URL 参数传递 key，不需要 Authorization header
-            // 直接返回预设模型，因为 Google 的 models API 需要额外权限
             return config.defaultModels;
         } else if (provider !== 'custom') { 
             headers['Authorization'] = `Bearer ${apiKey}`; 
         }
         
-        try {
-            let response;
-            
-            // 判断是否需要使用代理
-            if (config.needsProxy && provider !== 'custom') {
-                // 使用 CORS 代理
-                const proxyUrl = this.corsProxy + fullUrl;
-                console.log('通过代理获取模型列表:', proxyUrl);
-                response = await fetch(proxyUrl, { headers });
-            } else {
-                // 直接请求
-                response = await fetch(fullUrl, { headers });
-            }
-            
-            if (response.ok) {
-                const data = await response.json();
-                let models = [];
-                
-                // 根据不同API响应格式提取模型列表
-                if (data.data && Array.isArray(data.data)) {
-                    models = data.data;
-                } else if (data.models && Array.isArray(data.models)) {
-                    models = data.models;
-                } else if (Array.isArray(data)) {
-                    models = data;
+        // 尝试获取模型列表
+        for (let attempt = 0; attempt < this.proxyList.length + 1; attempt++) {
+            try {
+                let response;
+                if (config.needsProxy && provider !== 'custom') {
+                    const proxyUrl = this.getProxyUrl(fullUrl);
+                    console.log(`尝试获取模型列表 (${attempt + 1}):`, proxyUrl);
+                    response = await fetch(proxyUrl, { headers });
+                } else {
+                    response = await fetch(fullUrl, { headers });
                 }
                 
-                // 应用过滤
-                if (models.length > 0) {
-                    let filtered = models.map(m => m.id || m.model || m.name).filter(Boolean);
-                    // 去重
-                    filtered = [...new Set(filtered)];
+                if (response.ok) {
+                    const data = await response.json();
+                    let models = [];
                     
-                    if (filtered.length > 0) {
-                        return filtered;
+                    if (data.data && Array.isArray(data.data)) {
+                        models = data.data;
+                    } else if (data.models && Array.isArray(data.models)) {
+                        models = data.models;
                     }
+                    
+                    if (models.length > 0) {
+                        let filtered = models.map(m => m.id || m.model || m.name).filter(Boolean);
+                        filtered = [...new Set(filtered)];
+                        if (filtered.length > 0) {
+                            return filtered;
+                        }
+                    }
+                } else {
+                    const errorText = await response.text();
+                    console.warn(`获取失败 (${response.status}):`, errorText.substring(0, 100));
                 }
-            } else {
-                const errorText = await response.text();
-                console.warn(`获取模型列表失败 (${response.status}):`, errorText.substring(0, 200));
+            } catch(e) {
+                console.warn(`代理 ${attempt + 1} 失败:`, e.message);
+                this.switchProxy();
             }
-        } catch(e) { 
-            console.warn('获取模型列表失败，使用默认模型:', e.message); 
         }
         
-        // 失败时返回默认模型列表
+        // 获取失败，返回默认模型列表
+        console.log('自动获取失败，使用默认模型列表');
         return config.defaultModels;
     }
 
@@ -136,16 +146,13 @@ class AIModelAPI {
                 max_tokens: 4096, 
                 messages: [{ role: 'user', content: text }] 
             };
-            
-            // Anthropic 翻译请求也需要使用代理
             if (config.needsProxy) {
-                fullUrl = this.corsProxy + fullUrl;
+                fullUrl = this.getProxyUrl(fullUrl);
             }
         } else if (provider === 'google') {
             fullUrl = `${url}/models/${model}:generateContent?key=${apiKey}`;
             headers = { 'Content-Type': 'application/json' };
             body = { contents: [{ parts: [{ text: text }] }] };
-            // Google 不需要代理
         } else {
             fullUrl = url + config.chatUrl;
             headers = { 
@@ -158,14 +165,12 @@ class AIModelAPI {
                 temperature: 0.1,
                 max_tokens: 4096
             };
-            
-            // 翻译请求也需要使用代理
             if (config.needsProxy && provider !== 'custom') {
-                fullUrl = this.corsProxy + fullUrl;
+                fullUrl = this.getProxyUrl(fullUrl);
             }
         }
         
-        console.log('发送翻译请求到:', fullUrl);
+        console.log('发送翻译请求到:', fullUrl.replace(apiKey, '***'));
         
         const response = await fetch(fullUrl, { 
             method: 'POST', 
@@ -180,7 +185,6 @@ class AIModelAPI {
         
         const data = await response.json();
         
-        // 打印token消耗
         if (data.usage) {
             console.log(`Token消耗 - 输入:${data.usage.prompt_tokens}, 输出:${data.usage.completion_tokens}, 缓存命中:${data.usage.prompt_cache_hit_tokens || 0}`);
         }
