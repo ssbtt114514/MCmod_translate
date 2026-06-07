@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!apiKey) { alert('请输入 API Key'); return; }
         const provider = document.getElementById('apiProvider').value;
         const model = document.getElementById('modelSelect').value;
-        if (!model) { alert('请选择模型'); return; }
+        if (!model) { alert('请选择或输入模型'); return; }
         showStep(3);
         await startTranslation(provider, model, apiKey);
     };
@@ -167,18 +167,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const modelSelect = document.getElementById('modelSelect');
     const modelSearchInput = document.getElementById('modelSearchInput');
     const refreshModelsBtn = document.getElementById('refreshModelsBtn');
+    const manualAddModelBtn = document.getElementById('manualAddModelBtn');
+    const manualModelPanel = document.getElementById('manualModelPanel');
+    const manualModelInput = document.getElementById('manualModelInput');
+    const confirmManualModelBtn = document.getElementById('confirmManualModelBtn');
+    const cancelManualModelBtn = document.getElementById('cancelManualModelBtn');
     const baseUrlRow = document.getElementById('baseUrlRow');
     const apiBaseUrl = document.getElementById('apiBaseUrl');
 
     let allModels = [];
-    let currentProvider = 'openai';
+
+    // 预设模型列表（当自动获取失败时使用）
+    const PRESET_MODELS = {
+        deepseek: ['deepseek-chat', 'deepseek-coder'],
+        openai: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo', 'gpt-4o'],
+        anthropic: ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307', 'claude-3-5-sonnet-20240620'],
+        google: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.0-pro'],
+        custom: []
+    };
 
     async function loadModels() {
         const provider = providerSelect.value;
         const apiKey = document.getElementById('apiKey').value;
         const base = apiBaseUrl.value || null;
-        
-        currentProvider = provider;
         
         if (!apiKey && provider !== 'custom') {
             modelSelect.innerHTML = '<option value="">请先填写 API Key</option>';
@@ -190,16 +201,36 @@ document.addEventListener('DOMContentLoaded', () => {
         modelSelect.innerHTML = '<option value="">加载模型中...</option>';
         
         try {
-            const models = await apiManager.fetchModels(provider, apiKey, base);
+            let models = await apiManager.fetchModels(provider, apiKey, base);
+            
+            // 如果获取失败或结果为空，使用预设模型
+            if (!models || models.length === 0) {
+                console.log('自动获取失败，使用预设模型列表');
+                models = PRESET_MODELS[provider] || [];
+            }
+            
+            // 合并已有的手动添加模型
+            const savedManualModels = localStorage.getItem(`manual_models_${provider}`);
+            if (savedManualModels) {
+                const manualModels = JSON.parse(savedManualModels);
+                models = [...new Set([...manualModels, ...models])];
+            }
+            
             allModels = models;
             renderModelList('');
             
             if (models.length === 0) {
-                modelSelect.innerHTML = '<option value="">未获取到模型列表</option>';
+                modelSelect.innerHTML = '<option value="">未获取到模型列表，请手动添加</option>';
             }
         } catch(e) { 
             console.error(e);
-            modelSelect.innerHTML = `<option value="">加载失败: ${e.message}</option>`;
+            // 使用预设模型
+            const fallbackModels = PRESET_MODELS[provider] || [];
+            allModels = fallbackModels;
+            renderModelList('');
+            if (fallbackModels.length === 0) {
+                modelSelect.innerHTML = '<option value="">加载失败，请手动添加模型</option>';
+            }
         } finally {
             refreshModelsBtn.disabled = false;
             refreshModelsBtn.textContent = '🔄 刷新';
@@ -231,13 +262,79 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // 手动添加模型
+    function addManualModel(modelName) {
+        if (!modelName || modelName.trim() === '') return;
+        modelName = modelName.trim();
+        
+        const provider = providerSelect.value;
+        
+        // 保存到 localStorage
+        const savedKey = `manual_models_${provider}`;
+        const saved = localStorage.getItem(savedKey);
+        let manualModels = saved ? JSON.parse(saved) : [];
+        
+        if (!manualModels.includes(modelName)) {
+            manualModels.push(modelName);
+            localStorage.setItem(savedKey, JSON.stringify(manualModels));
+        }
+        
+        // 更新当前模型列表
+        if (!allModels.includes(modelName)) {
+            allModels.unshift(modelName);
+        }
+        
+        renderModelList(modelSearchInput.value);
+        modelSelect.value = modelName;
+        window._selectedModel = modelName;
+        
+        // 关闭面板
+        manualModelPanel.style.display = 'none';
+        manualModelInput.value = '';
+    }
+
+    // 搜索输入监听
     modelSearchInput.addEventListener('input', (e) => {
         renderModelList(e.target.value);
+    });
+    
+    // 搜索框也可以作为手动输入（按回车添加）
+    modelSearchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const value = e.target.value.trim();
+            if (value && !allModels.includes(value)) {
+                addManualModel(value);
+            } else if (value && allModels.includes(value)) {
+                modelSelect.value = value;
+                window._selectedModel = value;
+            }
+        }
     });
 
     refreshModelsBtn.onclick = () => {
         loadModels();
     };
+    
+    manualAddModelBtn.onclick = () => {
+        manualModelPanel.style.display = 'block';
+        manualModelInput.focus();
+    };
+    
+    confirmManualModelBtn.onclick = () => {
+        addManualModel(manualModelInput.value);
+    };
+    
+    cancelManualModelBtn.onclick = () => {
+        manualModelPanel.style.display = 'none';
+        manualModelInput.value = '';
+    };
+    
+    // 回车添加
+    manualModelInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            addManualModel(manualModelInput.value);
+        }
+    });
 
     modelSelect.addEventListener('change', (e) => {
         window._selectedModel = e.target.value;
@@ -253,6 +350,14 @@ document.addEventListener('DOMContentLoaded', () => {
         modelSearchInput.value = '';
         allModels = [];
         modelSelect.innerHTML = '<option value="">点击刷新获取模型列表</option>';
+        
+        // 加载该提供商保存的手动模型
+        const savedManualModels = localStorage.getItem(`manual_models_${val}`);
+        if (savedManualModels) {
+            const manualModels = JSON.parse(savedManualModels);
+            allModels = manualModels;
+            renderModelList('');
+        }
         
         const apiKey = document.getElementById('apiKey').value;
         if (apiKey || val === 'custom') {
@@ -271,6 +376,25 @@ document.addEventListener('DOMContentLoaded', () => {
             loadModels();
         }
     });
+    
+    // 显示 CORS 提示（可选）
+    setTimeout(() => {
+        const notice = document.getElementById('corsNotice');
+        if (notice && !localStorage.getItem('cors_notice_closed')) {
+            notice.style.display = 'flex';
+        }
+    }, 1000);
+    
+    document.querySelector('#corsNotice button')?.addEventListener('click', () => {
+        localStorage.setItem('cors_notice_closed', 'true');
+    });
+    
+    // 默认加载 DeepSeek 模型
+    setTimeout(() => {
+        if (providerSelect.value === 'deepseek') {
+            loadModels();
+        }
+    }, 500);
     
     showStep(1);
 });
